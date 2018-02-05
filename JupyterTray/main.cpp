@@ -7,6 +7,7 @@
 #endif
 
 constexpr const wchar_t *CLASS_NAME = L"_jupyter_tray";
+constexpr const wchar_t *TOOLTIP_TEXT = L"Jupyter Tray";
 constexpr const int WM_TRAYICON = WM_USER + 1;
 constexpr const wchar_t *JULIAPRO_HOME_ENV_VAR = L"JULIAPRO_HOME";
 constexpr const int CONTEXT_MENU_EXIT_CMD = 1;
@@ -205,10 +206,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
     // initialize notify icon
     g_notifyIconData.cbSize = sizeof(NOTIFYICONDATA_V2_SIZE);
     g_notifyIconData.hWnd = hWnd;
-    g_notifyIconData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_GUID;
+    g_notifyIconData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_GUID | NIF_TIP;
     g_notifyIconData.uCallbackMessage = WM_TRAYICON;
     g_notifyIconData.hIcon = hIcon;
     g_notifyIconData.guidItem = notifyIconGuid;
+    lstrcpyn(g_notifyIconData.szTip, TOOLTIP_TEXT, 64);
 
     // show the icon
     Shell_NotifyIcon(NIM_ADD, &g_notifyIconData);

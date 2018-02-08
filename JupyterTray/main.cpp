@@ -8,6 +8,7 @@
 
 constexpr const wchar_t *CLASS_NAME = L"_jupyter_tray";
 constexpr const wchar_t *TOOLTIP_TEXT = L"Jupyter Tray";
+constexpr const wchar_t *MUTEX_NAME = L"_jupyter_tray_mutex";
 constexpr const int WM_TRAYICON = WM_USER + 1;
 constexpr const wchar_t *JULIAPRO_HOME_ENV_VAR = L"JULIAPRO_HOME";
 constexpr const int CONTEXT_MENU_EXIT_CMD = 1;
@@ -20,6 +21,7 @@ constexpr const wchar_t *CMD_ARGS = L" notebook --notebook-dir=";
 
 
 NOTIFYICONDATA g_notifyIconData = {};
+HANDLE g_hMutex = INVALID_HANDLE_VALUE;
 HMENU g_hPopupMenu = {};
 BOOL g_jupyterStarted = FALSE;
 PROCESS_INFORMATION g_jupyterServer = {};
@@ -90,6 +92,12 @@ void JupyterTrayExit()
     if (g_jupyterStarted)
         system("taskkill /F /T /IM jupyter.exe /IM jupyter-notebook.exe");
 
+    if (g_hMutex != INVALID_HANDLE_VALUE)
+    {
+        ReleaseMutex(g_hMutex);
+        CloseHandle(g_hMutex);
+    }
+
     CloseHandle(g_jupyterServer.hProcess);
     CloseHandle(g_jupyterServer.hThread);
     DestroyMenu(g_hPopupMenu);
@@ -151,9 +159,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
     GUID notifyIconGuid = {};
     std::wstring iconPath;
 
+    g_hMutex = CreateMutex(nullptr, TRUE, MUTEX_NAME);
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+        FatalAppExit(0, L"An instance of this program is already running!");
+
     // get julia information
     if (!GetEnvVarWstring(JULIAPRO_HOME_ENV_VAR, g_juliaPath))
-        FatalAppExit(0, L"Failed to find JuliaPro - is JULIAPRO_HOME set?");
+        FatalAppExit(1, L"Failed to find JuliaPro - is JULIAPRO_HOME set?");
 
     // initialize window 
     wnd.hInstance = hInstance;
@@ -167,7 +179,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
     wnd.hbrBackground = (HBRUSH)COLOR_APPWORKSPACE;
 
     if (!RegisterClassEx(&wnd))
-        FatalAppExit(0, L"Failed to start Jupyter Tray!");
+        FatalAppExit(1, L"Failed to start Jupyter Tray!");
 
     hWnd = CreateWindowEx(
         0,
@@ -197,11 +209,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
     );
 
     if (!hIcon)
-        FatalAppExit(0, L"Failed to get icon!");
+        FatalAppExit(1, L"Failed to get icon!");
 
     // get guid for our app
     if (FAILED(CoCreateGuid(&notifyIconGuid)))
-        FatalAppExit(0, L"Failed to generate guid!");
+        FatalAppExit(1, L"Failed to generate guid!");
 
     // initialize notify icon
     g_notifyIconData.cbSize = sizeof(NOTIFYICONDATA_V2_SIZE);
